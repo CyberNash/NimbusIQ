@@ -144,7 +144,6 @@
 <!-- THE FINAL FIX: A SINGLE MODULE SCRIPT TO RULE THEM ALL -->
 <script type="module">
   // We import the CORRECT browser version of the AI library at the very top.
-  // This version does NOT use 'exports' and is designed for this environment.
   import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
   
   // ALL dashboard code is now inside this single module script.
@@ -205,11 +204,19 @@
   // ******************************************************************
   const GEMINI_API_KEY = "AIzaSyAArxedYC5OXqcgLdpn0lkNMXJGApCD_5s";
   
-  let model;
+  // FIX #1: INITIALIZE THE AI AND THE MODEL
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  // FIX #2: USE A VALID MODEL NAME
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  // You can also use "gemini-pro" which is also very good.
+  // const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+  console.log("SUCCESS: Gemini AI Initialized.");
 
   async function getAIAdvice() {
+    // This check is no longer strictly needed but is good practice
     if (!model) {
-        alert("Gemini AI model is not ready. Please verify your API key and do a hard refresh (Ctrl+F5).");
+        alert("Gemini AI model could not be initialized. Please verify your API key and refresh.");
         return;
     }
 
@@ -251,47 +258,35 @@
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const adviceText = response.text();
-      let formattedHtml = adviceText.replace(/^\s*-\s*/gm, '<li>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      // Improved formatting to handle unordered lists correctly
+      let formattedHtml = adviceText
+        .split('\n') // Split by new lines
+        .filter(line => line.trim().startsWith('*') || line.trim().startsWith('-')) // Keep only lines that start with * or -
+        .map(line => `<li>${line.trim().substring(1).trim()}</li>`) // Convert them to <li> tags
+        .join('');
       
       // Update the modal body with the data summary AND the final AI advice
       aiAdviceBody.innerHTML = dataSummaryHtml + `<ul>${formattedHtml}</ul>`;
 
     } catch (error) {
       console.error("Gemini API Error:", error);
-      aiAdviceBody.innerHTML = `<div class="text-center text-danger"><p><strong>Oops! Could not get advice.</strong></p><p class="small">Google's server blocked the request. Is your API key restricted?</p></div>`;
+      // More user-friendly error message
+      aiAdviceBody.innerHTML = dataSummaryHtml + `<div class="alert alert-danger mt-2"><p><strong>Oops! Could not get advice.</strong></p><p class="small mb-0">The request failed. This often happens if the API key is invalid, has restrictions (like HTTP referrer), or has billing issues. Check the console for more details.</p></div>`;
     } finally {
       aiAdviceBtn.disabled = false;
     }
   }
-  // --- End of AI Implementation ---
-  
-  function initializePage() {
-    initCharts();
-    initializeFirebaseListeners();
-    document.getElementById('saveSettings').addEventListener('click', saveSettings);
-    $('[data-bs-toggle="tooltip"]').tooltip();
-    document.getElementById('ai-advice-btn').addEventListener('click', getAIAdvice);
-    
-    //
-    // --- FINAL, SIMPLIFIED AI Initialization ---
-    //
-    try {
-        if (!GEMINI_API_KEY || GEMINI_API_KEY === "AIzaSyDgx7eiQN8fX5bSmPJe33ELPGZ73IZnUVY") {
-            console.warn("AI SKIPPED: Please paste your API key to enable AI features.");
-        } else {
-          const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-          model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-          console.log("%cSUCCESS: Gemini AI Initialized.", "color: green; font-weight: bold;");
-        }
-    } catch(e) {
-        console.error("%cCRITICAL AI FAILURE: Could not initialize Gemini.", "color: red; font-weight: bold;", e);
-        alert("AI could not be set up. This is usually due to an incorrect or restricted API key. Please check the console for critical errors.");
-    }
-  }
 
-  // jQuery's document ready function now just calls our main initializer.
-  // The module system ensures `GoogleGenerativeAI` is ready before this runs.
-  $(document).ready(initializePage);
+  // --- Attach event listener for the AI button ---
+  document.getElementById('ai-advice-btn').addEventListener('click', getAIAdvice);
+  
+  // --- Initialize everything when the document is ready ---
+  document.addEventListener('DOMContentLoaded', () => {
+    initCharts();
+    updateAlertsTable(); // Show "No recent alerts" on load
+    document.getElementById('saveSettings').addEventListener('click', saveSettings);
+    initializeFirebaseListeners();
+  });
 </script>
 
 </body>
