@@ -205,9 +205,9 @@
   const GEMINI_API_KEY = "AIzaSyAArxedYC5OXqcgLdpn0lkNMXJGApCD_5s";
   
   // FIX #1: INITIALIZE THE AI AND THE MODEL
-  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY, { apiVersion: "v1" });
   // FIX #2: USE A VALID MODEL NAME
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   // You can also use "gemini-pro" which is also very good.
   // const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
