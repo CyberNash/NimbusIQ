@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Air Quality Monitoring Dashboard</title>
+
+  <!-- Google Font: Source Sans Pro -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- AdminLTE (for cards and other components) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <!-- Animate.css for smooth transitions -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+  
+  <style>
+    :root {
+      --primary-color: #3498db;
+      --secondary-color: #2c3e50;
+      --danger-color: #e74c3c;
+      --warning-color: #f39c12;
+      --success-color: #2ecc71;
+      --info-color: #1abc9c;
+    }
+    body { background-color: #f8fafc; }
+    .sensor-card {
+      transition: all 0.3s ease;
+      border-left: 4px solid var(--primary-color) !important;
+      border-radius: 10px !important;
+      overflow: hidden;
+    }
+    .sensor-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+    .sensor-value { font-size: 2.8rem; font-weight: 700; margin: 10px 0; }
+    .sensor-unit { font-size: 1.2rem; opacity: 0.8; }
+    .aqi-indicator { padding: 5px 12px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; color: white; }
+    .card-header { background-color: white !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important; padding: 15px 20px !important; }
+    .main-footer { background-color: white !important; padding: 15px 0; }
+    .navbar { box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .status-badge { font-size: 0.8rem; padding: 5px 10px; border-radius: 20px; }
+    .chart-container { position: relative; height: 250px; width: 100%; }
+    .sensor-icon { font-size: 1.8rem; margin-bottom: 10px; opacity: 0.8; }
+    .alert-threshold { position: absolute; right: 20px; top: 15px; font-size: 0.8rem; }
+    .aqi-good { background-color: var(--success-color); }
+    .aqi-moderate { background-color: var(--warning-color); }
+    .aqi-poor { background-color: var(--danger-color); }
+  </style>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-analytics-compat.js"></script>
+</head>
+<body class="hold-transition layout-top-nav">
+<div class="wrapper">
+
+  <!-- Navbar -->
+  <nav class="main-header navbar navbar-expand-md navbar-white navbar-light">
+    <div class="container">
+      <a href="#" class="navbar-brand d-flex align-items-center">
+        <i class="fas fa-wind text-primary me-2"></i>
+        <span class="brand-text font-weight-bold">Air Quality Monitor</span>
+      </a>
+      <button class="navbar-toggler order-1" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse order-3" id="navbarCollapse">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal"><i class="fas fa-cog me-1"></i> Settings</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal"><i class="fas fa-info-circle me-1"></i> About</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Content Wrapper -->
+  <div class="content-wrapper">
+    <div class="content">
+      <div class="container-fluid pt-3">
+        <div class="row mb-3">
+          <div class="col-12">
+            <div class="alert alert-dismissible fade show mb-0" role="alert" id="systemAlert">
+              <strong><i class="fas fa-check-circle me-2"></i>System is operational.</strong> Waiting for first data...
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          </div>
+        </div>
+        <div class="row mb-4">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                <h3 class="card-title mb-0"><i class="fas fa-chart-line text-primary me-2"></i>Current Conditions</h3>
+                <div class="d-flex align-items-center mt-2 mt-md-0">
+                  <span class="badge bg-primary me-2" id="last-updated">Last updated: --</span>
+                  <span class="badge bg-success status-badge" id="refresh-status">
+                    <i class="fas fa-sync-alt me-1"></i> Live Data
+                  </span>
+                  <button class="btn btn-info ms-2" id="ai-advice-btn" title="Get AI-powered recommendations" disabled>
+                    <i class="fas fa-robot"></i> Get Advice
+                  </button>
+                </div>
+              </div>
+              <div class="card-body pt-4 pb-3">
+                <div class="row">
+                  <div class="col-md-4 mb-4 mb-md-0"><div class="card sensor-card h-100"><div class="card-body text-center position-relative"><div class="sensor-icon text-danger"><i class="fas fa-temperature-high"></i></div><h5 class="card-title">Temperature</h5><div class="sensor-value" id="temperature">--</div><div class="sensor-unit">°C</div><div class="mt-3 small" id="temp-trend"><i class="fas fa-minus text-muted me-1"></i> <span>Awaiting data...</span></div><div class="alert-threshold"><small class="text-muted">Threshold: <span id="temp-threshold">30°C</span></small></div></div></div></div>
+                  <div class="col-md-4 mb-4 mb-md-0"><div class="card sensor-card h-100"><div class="card-body text-center position-relative"><div class="sensor-icon text-info"><i class="fas fa-tint"></i></div><h5 class="card-title">Humidity</h5><div class="sensor-value" id="humidity">--</div><div class="sensor-unit">%</div><div class="mt-3 small" id="humidity-trend"><i class="fas fa-minus text-muted me-1"></i> <span>Awaiting data...</span></div><div class="alert-threshold"><small class="text-muted">Threshold: <span id="humidity-threshold">70%</span></small></div></div></div></div>
+                  <div class="col-md-4"><div class="card sensor-card h-100"><div class="card-body text-center position-relative"><div class="sensor-icon text-warning"><i class="fas fa-wind"></i></div><h5 class="card-title">Air Quality</h5><div class="sensor-value" id="air-quality">--</div><div class="sensor-unit">Status: <span class="aqi-indicator" id="aqi-level">--</span></div><div class="mt-3 small" id="aq-trend"><i class="fas fa-minus text-muted me-1"></i> <span>Awaiting data...</span></div></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row mb-4"><div class="col-lg-6"><div class="card h-100"><div class="card-header"><h3 class="card-title"><i class="fas fa-temperature-low text-danger me-2"></i>Temperature History</h3></div><div class="card-body"><div class="chart-container"><canvas id="tempChart"></canvas></div></div></div></div><div class="col-lg-6"><div class="card h-100"><div class="card-header"><h3 class="card-title"><i class="fas fa-tint text-info me-2"></i>Humidity History</h3></div><div class="card-body"><div class="chart-container"><canvas id="humidityChart"></canvas></div></div></div></div></div>
+        <div class="row"><div class="col-12"><div class="card"><div class="card-header"><h3 class="card-title"><i class="fas fa-bell text-primary me-2"></i>Recent Alerts</h3></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Time</th><th>Sensor</th><th>Message</th><th>Status</th></tr></thead><tbody id="alerts-table"><tr><td colspan="4" class="text-center py-4">No recent alerts</td></tr></tbody></table></div></div></div></div></div>
+      </div>
+    </div>
+  </div>
+  <footer class="main-footer"><div class="container-fluid"><div class="row"><div class="col-md-6"><strong>Air Quality Monitoring System © <span id="current-year"></span></strong></div><div class="col-md-6 text-md-end"><span class="me-3">Sensor Status:</span><span class="badge bg-success me-2"><i class="fas fa-check-circle me-1"></i> Temp</span><span class="badge bg-success me-2"><i class="fas fa-check-circle me-1"></i> Humidity</span><span class="badge bg-success me-2"><i class="fas fa-check-circle me-1"></i> Air Quality</span></div></div></div></footer>
+</div>
+
+<div class="modal fade" id="aboutModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"><i class="fas fa-info-circle text-primary me-2"></i>About This Dashboard</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div class="text-center mb-4"><i class="fas fa-wind fa-4x text-primary mb-3"></i><h4>Air Quality Monitoring System</h4><p class="text-muted">Version 2.7 (AI Working)</p></div><p>This dashboard provides real-time monitoring of environmental conditions.</p><div class="alert alert-info mt-3"><i class="fas fa-clock me-2"></i> Data updates in real-time from Firebase</div></div><div class="modal-footer"><button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button></div></div></div></div>
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"><i class="fas fa-cog text-primary me-2"></i>Dashboard Settings</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><form onsubmit="return false;"><div class="mb-3"><label class="form-label">Temperature Threshold (°C)</label><input type="number" class="form-control" id="tempThresholdInput" value="30"></div><div class="mb-3"><label class="form-label">Humidity Threshold (%)</label><input type="number" class="form-control" id="humidityThresholdInput" value="70"></div><div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="enableAlerts" checked><label class="form-check-label" for="enableAlerts">Enable alert notifications</label></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="saveSettings">Save Settings</button></div></div></div></div>
+<div class="modal fade" id="aiModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-info text-white"><h5 class="modal-title"><i class="fas fa-robot me-2"></i>Environmental Advice</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body" id="ai-advice-body"></div><div class="modal-footer"><button type="button" class="btn btn-primary" data-bs-dismiss="modal">Great, thanks!</button></div></div></div></div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1056;"></div>
+
+<!-- REQUIRED SCRIPTS -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js"></script>
+<script src="firebase-config.js"></script>
+
+<!-- THE FINAL FIX: A SINGLE MODULE SCRIPT TO RULE THEM ALL -->
+<script type="module">
+  // We import the CORRECT browser version of the AI library at the very top.
+  // This version does NOT use 'exports' and is designed for this environment.
+  import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+  
+  // ALL dashboard code is now inside this single module script.
+  // This completely eliminates all timing and race condition problems.
+
+  // Initialize Firebase
+  const app = firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  const analytics = firebase.analytics();
+  const dataRef = database.ref('air_monitor');
+
+  document.getElementById('current-year').textContent = new Date().getFullYear();
+  let lastTemp = null;
+  let lastHumidity = null;
+  let lastAirStatus = null;
+  let alerts = [];
+  let thresholds = { temp: 30, humidity: 70 };
+  let tempChart, humidityChart;
+  
+  // Your original functions remain untouched
+  function formatTime(date) { return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  function formatChartTime(date) { return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+  function playAlertSound() { const audioCtx = new (window.AudioContext || window.webkitAudioContext)(); const oscillator = audioCtx.createOscillator(); const gainNode = audioCtx.createGain(); oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); oscillator.connect(gainNode); gainNode.connect(audioCtx.destination); oscillator.start(); gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1); oscillator.stop(audioCtx.currentTime + 1); }
+  function initCharts() { const tempCtx = document.getElementById('tempChart').getContext('2d'); const humidityCtx = document.getElementById('humidityChart').getContext('2d'); const chartOptions = { responsive: true, maintainAspectRatio: false, scales: { x: { display: true, title: { display: true, text: 'Time' }}, y: { display: true, title: { display: true }}}, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false }}, interaction: { mode: 'nearest', axis: 'x', intersect: false }}; tempChart = new Chart(tempCtx, { type: 'line', data: { labels: [], datasets: [{ label: 'Temperature (°C)', data: [], borderColor: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.1)', tension: 0.3, fill: true, borderWidth: 2 }] }, options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, title: { display: true, text: 'Temperature (°C)' }}} }}); humidityChart = new Chart(humidityCtx, { type: 'line', data: { labels: [], datasets: [{ label: 'Humidity (%)', data: [], borderColor: '#3498db', backgroundColor: 'rgba(52, 152, 219, 0.1)', tension: 0.3, fill: true, borderWidth: 2 }] }, options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, title: { display: true, text: 'Humidity (%)' }, min: 0, max: 100 }} }}); }
+  function updateCharts(temp, humidity, timestamp) { const timeStr = formatChartTime(timestamp); if (tempChart.data.labels.length >= 20) { tempChart.data.labels.shift(); tempChart.data.datasets[0].data.shift(); humidityChart.data.labels.shift(); humidityChart.data.datasets[0].data.shift(); } tempChart.data.labels.push(timeStr); tempChart.data.datasets[0].data.push(temp); tempChart.update(); humidityChart.data.labels.push(timeStr); humidityChart.data.datasets[0].data.push(humidity); humidityChart.update(); }
+  function parseSensorData(data) { return { temperature: data?.temperature_c || null, humidity: data?.humidity || null, airStatus: data?.air_quality || '--' }; }
+  function updateDashboardWithRealData(data, timestamp) { const timeStr = formatTime(timestamp); const sensorValues = parseSensorData(data); document.getElementById("temperature").textContent = sensorValues.temperature?.toFixed(1) ?? '--'; document.getElementById("humidity").textContent = sensorValues.humidity?.toFixed(1) ?? '--'; document.getElementById("last-updated").textContent = `Last updated: ${timeStr}`; if(lastTemp === null){ document.getElementById('ai-advice-btn').disabled = false; } updateAirQualityStatus(sensorValues.airStatus); if (lastTemp !== null && sensorValues.temperature !== null) { updateTrendIndicator('temp', sensorValues.temperature, lastTemp); } if (lastHumidity !== null && sensorValues.humidity !== null) { updateTrendIndicator('humidity', sensorValues.humidity, lastHumidity); } if (sensorValues.temperature !== null) { checkThresholds(sensorValues.temperature, sensorValues.humidity, sensorValues.airStatus, timestamp); } lastTemp = sensorValues.temperature; lastHumidity = sensorValues.humidity; lastAirStatus = sensorValues.airStatus; if (sensorValues.temperature !== null && sensorValues.humidity !== null) { updateCharts(sensorValues.temperature, sensorValues.humidity, timestamp); } animateCards(); }
+  function updateAirQualityStatus(status) { const aqiElement = document.getElementById('aqi-level'); const airQualityElement = document.getElementById('air-quality'); if (status === "Good") { aqiElement.textContent = 'Good'; aqiElement.className = 'aqi-indicator aqi-good'; airQualityElement.textContent = '✓'; } else if (status === "Moderate") { aqiElement.textContent = 'Moderate'; aqiElement.className = 'aqi-indicator aqi-moderate'; airQualityElement.textContent = '⚠'; } else if (status === "Poor") { aqiElement.textContent = 'Poor'; aqiElement.className = 'aqi-indicator aqi-poor'; airQualityElement.textContent = '✗'; playAlertSound(); } else { aqiElement.textContent = '--'; aqiElement.className = 'aqi-indicator'; airQualityElement.textContent = '--'; } }
+  function animateCards() { document.querySelectorAll('.sensor-card').forEach(card => { card.classList.add('animate__pulse'); setTimeout(() => { card.classList.remove('animate__pulse'); }, 1000); }); }
+  function updateTrendIndicator(type, currentValue, lastValue) { const element = document.getElementById(`${type}-trend`); const icon = element.querySelector('i') || element; const textSpan = element.querySelector('span') || element; const current = parseFloat(currentValue); const last = parseFloat(lastValue); const diff = current - last; const absDiff = Math.abs(diff); if (diff > 0.1) { icon.className = icon.className.replace('text-muted', 'text-danger').replace('text-success', 'text-danger'); icon.className = icon.className.replace('fa-arrow-right', 'fa-arrow-up'); textSpan.textContent = `Rising (${absDiff.toFixed(1)})`; } else if (diff < -0.1) { icon.className = icon.className.replace('text-muted', 'text-success').replace('text-danger', 'text-success'); icon.className = icon.className.replace('fa-arrow-right', 'fa-arrow-down'); textSpan.textContent = `Falling (${absDiff.toFixed(1)})`; } else { icon.className = icon.className.replace('text-danger', 'text-muted').replace('text-success', 'text-muted'); icon.className = icon.className.replace('fa-arrow-up', 'fa-arrow-right').replace('fa-arrow-down', 'fa-arrow-right'); textSpan.textContent = 'No change'; } }
+  function checkThresholds(temp, humidity, airStatus, timestamp) { const tempNum = parseFloat(temp); const humidityNum = parseFloat(humidity); if (tempNum > thresholds.temp) { addAlert(timestamp, 'Temperature', `High temperature warning: ${tempNum.toFixed(1)}°C (Threshold: ${thresholds.temp}°C)`, 'danger'); } if (humidityNum > thresholds.humidity) { addAlert(timestamp, 'Humidity', `High humidity warning: ${humidityNum.toFixed(1)}% (Threshold: ${thresholds.humidity}%)`, 'warning'); } if (airStatus === 'Poor' && lastAirStatus !== 'Poor') { addAlert(timestamp, 'Air Quality', 'Poor air quality detected', 'danger'); } }
+  function addAlert(timestamp, sensor, message, severity) { const timeStr = formatTime(timestamp); alerts.unshift({ time: timeStr, sensor, message, severity }); if (alerts.length > 5) alerts.pop(); updateAlertsTable(); if (document.getElementById('enableAlerts').checked) { showAlertNotification(message, severity); } }
+  function updateAlertsTable() { const tableBody = document.getElementById('alerts-table'); if (alerts.length === 0) { tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4">No recent alerts</td></tr>'; return; } tableBody.innerHTML = alerts.map(alert => `<tr><td>${alert.time}</td><td>${alert.sensor}</td><td>${alert.message}</td><td><span class="badge bg-${alert.severity}">${alert.severity === 'danger' ? 'Critical' : 'Warning'}</span></td></tr>`).join(''); }
+  
+  function showAlertNotification(message, severity) {
+    const toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) return;
+    const isDanger = severity === 'danger';
+    const toastClass = isDanger ? 'bg-danger' : 'bg-warning';
+    const iconClass = isDanger ? 'fas fa-exclamation-triangle' : 'fas fa-exclamation-circle';
+    const title = isDanger ? 'Critical Alert' : 'Warning';
+    const toastWrapper = document.createElement('div');
+    toastWrapper.innerHTML = `<div class="toast text-white ${toastClass} border-0" role="alert" aria-live="assertive" aria-atomic="true"><div class="toast-header text-white ${toastClass}"><i class="${iconClass} me-2"></i><strong class="me-auto">${title}</strong><small>Just now</small><button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button></div><div class="toast-body">${message}</div></div>`;
+    const toastElement = toastWrapper.firstChild;
+    toastContainer.appendChild(toastElement);
+    const bsToast = new bootstrap.Toast(toastElement, { delay: 6000 });
+    bsToast.show();
+    toastElement.addEventListener('hidden.bs.toast', () => { toastElement.remove(); });
+  }
+
+  function saveSettings() { thresholds.temp = parseFloat(document.getElementById('tempThresholdInput').value); thresholds.humidity = parseFloat(document.getElementById('humidityThresholdInput').value); document.getElementById('temp-threshold').textContent = `${thresholds.temp}°C`; document.getElementById('humidity-threshold').textContent = `${thresholds.humidity}%`; const alert = new bootstrap.Alert(document.getElementById('systemAlert')); alert._element.innerHTML = `<strong><i class="fas fa-check-circle me-2"></i>Settings saved</strong><button type="button" class="btn-close" data-bs-dismiss="alert"></button>`; alert._element.classList.remove('alert-danger', 'alert-warning'); alert._element.classList.add('alert-success'); alert._element.classList.add('show'); }
+  function initializeFirebaseListeners() { dataRef.on('value', (snapshot) => { try { const data = snapshot.val(); const timestamp = new Date(); updateDashboardWithRealData(data, timestamp); } catch (error) { console.error("Error processing Firebase data:", error); document.getElementById('systemAlert').innerHTML = `<strong><i class="fas fa-exclamation-triangle me-2"></i>Data Error</strong><button type="button" class="btn-close" data-bs-dismiss="alert"></button>`; document.getElementById('systemAlert').className = "alert alert-danger alert-dismissible fade show"; } }, (error) => { console.error("Firebase read failed:", error); document.getElementById('systemAlert').innerHTML = `<strong><i class="fas fa-exclamation-triangle me-2"></i>Connection Error</strong><button type="button" class="btn-close" data-bs-dismiss="alert"></button>`; document.getElementById('systemAlert').className = "alert alert-danger alert-dismissible fade show"; }); }
+  
+  // --- AI Implementation ---
+  
+  // ******************************************************************
+  // *  WARNING: PASTE YOUR GEMINI API KEY HERE.                      *
+  // ******************************************************************
+  const GEMINI_API_KEY = "AIzaSyAArxedYC5OXqcgLdpn0lkNMXJGApCD_5s";
+  
+  let model;
+
+  async function getAIAdvice() {
+    if (!model) {
+        alert("Gemini AI model is not ready. Please verify your API key and do a hard refresh (Ctrl+F5).");
+        return;
+    }
+
+    const aiModal = new bootstrap.Modal(document.getElementById('aiModal'));
+    const aiAdviceBody = document.getElementById('ai-advice-body');
+    const aiAdviceBtn = document.getElementById('ai-advice-btn');
+    
+    // --- FEATURE UPDATE: Build a summary of the data ---
+    const dataSummaryHtml = `
+      <div class="mb-3 p-2 bg-light rounded border">
+        <h6 class="mb-2 text-muted">Advice based on:</h6>
+        <div class="d-flex justify-content-around">
+          <div class="text-center px-2">
+            <i class="fas fa-temperature-high text-danger"></i>
+            <div class="small">${lastTemp}°C</div>
+          </div>
+          <div class="text-center px-2">
+            <i class="fas fa-tint text-info"></i>
+            <div class="small">${lastHumidity}%</div>
+          </div>
+          <div class="text-center px-2">
+            <i class="fas fa-wind text-warning"></i>
+            <div class="small">${lastAirStatus}</div>
+          </div>
+        </div>
+      </div>
+      <hr class="my-2">
+    `;
+    
+    // Display the data summary and a spinner immediately
+    aiAdviceBody.innerHTML = dataSummaryHtml + `<div class="d-flex align-items-center"><div class="spinner-border text-info me-3" role="status"><span class="visually-hidden">Loading...</span></div><span>The AI is analyzing...</span></div>`;
+    
+    aiModal.show();
+    aiAdviceBtn.disabled = true;
+
+    const prompt = `Based on this data: Temperature is ${lastTemp}°C, Humidity is ${lastHumidity}%, and Air Quality is "${lastAirStatus}", give me short, personalized tips. Examples: is it safe to go outside, should I stay hydrated, or should I keep windows closed? Format the response as a simple list using markdown bullet points (e.g., "- tip 1"). Provide only the list, no conversational intro or outro.`;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const adviceText = response.text();
+      let formattedHtml = adviceText.replace(/^\s*-\s*/gm, '<li>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      
+      // Update the modal body with the data summary AND the final AI advice
+      aiAdviceBody.innerHTML = dataSummaryHtml + `<ul>${formattedHtml}</ul>`;
+
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      aiAdviceBody.innerHTML = `<div class="text-center text-danger"><p><strong>Oops! Could not get advice.</strong></p><p class="small">Google's server blocked the request. Is your API key restricted?</p></div>`;
+    } finally {
+      aiAdviceBtn.disabled = false;
+    }
+  }
+  // --- End of AI Implementation ---
+  
+  function initializePage() {
+    initCharts();
+    initializeFirebaseListeners();
+    document.getElementById('saveSettings').addEventListener('click', saveSettings);
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    document.getElementById('ai-advice-btn').addEventListener('click', getAIAdvice);
+    
+    //
+    // --- FINAL, SIMPLIFIED AI Initialization ---
+    //
+    try {
+        if (!GEMINI_API_KEY || GEMINI_API_KEY === "AIzaSyDgx7eiQN8fX5bSmPJe33ELPGZ73IZnUVY") {
+            console.warn("AI SKIPPED: Please paste your API key to enable AI features.");
+        } else {
+          const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+          model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+          console.log("%cSUCCESS: Gemini AI Initialized.", "color: green; font-weight: bold;");
+        }
+    } catch(e) {
+        console.error("%cCRITICAL AI FAILURE: Could not initialize Gemini.", "color: red; font-weight: bold;", e);
+        alert("AI could not be set up. This is usually due to an incorrect or restricted API key. Please check the console for critical errors.");
+    }
+  }
+
+  // jQuery's document ready function now just calls our main initializer.
+  // The module system ensures `GoogleGenerativeAI` is ready before this runs.
+  $(document).ready(initializePage);
+</script>
+
+</body>
+</html>

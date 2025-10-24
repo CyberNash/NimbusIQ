@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Google Font: Source Sans Pro -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary-color: #3498db;
+      --danger-color: #e74c3c;
+      --warning-color: #f39c12;
+      --success-color: #2ecc71;
+    }
+    
+    .report-section {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    
+    /* Print-specific styles */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printSection, #printSection * {
+        visibility: visible;
+      }
+      #printSection {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 20px;
+        background-color: white;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .page-break {
+        page-break-after: always;
+      }
+      .print-table {
+        width: 100% !important;
+      }
+      .print-full-width {
+        width: 100% !important;
+      }
+    }
+    
+    .aqi-good { background-color: var(--success-color); color: white; padding: 2px 8px; border-radius: 4px; }
+    .aqi-moderate { background-color: var(--warning-color); color: white; padding: 2px 8px; border-radius: 4px; }
+    .aqi-poor { background-color: var(--danger-color); color: white; padding: 2px 8px; border-radius: 4px; }
+    
+    .report-header {
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .parameter-card {
+      border-left: 4px solid var(--primary-color);
+      margin-bottom: 15px;
+    }
+    
+    .logo-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .logo-img {
+      height: 150px; /* scale up */
+      width: auto;
+      display: inline-block;
+    }
+
+    .signature-area {
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px dashed #ccc;
+    }
+  </style>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+  
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4BMltzx0XhbJTFL6mJi55Hh7mQa4Cee8",
+      authDomain: "air-with-cloud-monitoring.firebaseapp.com",
+      databaseURL: "https://air-with-cloud-monitoring-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "air-with-cloud-monitoring",
+      storageBucket: "air-with-cloud-monitoring.appspot.com",
+      messagingSenderId: "365608968348",
+      appId: "1:365608968348:web:e5f9f4d679a2bac8468d59",
+      measurementId: "G-DJ2Z30Q9KY"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+  </script>
+</head>
+<body class="bg-light">
+<div class="container py-5">
+
+  <!-- Header -->  
+  <div class="text-center mb-5">
+    <h1 class="display-4 text-primary">
+      <i class="fas fa-wind me-2"></i>
+      <a href="Airmonitoring.html" style="text-decoration: none; color: inherit;">
+        Air Quality Report
+      </a>
+    </h1>
+    <p class="lead">Generate reports from your air quality data</p>
+  </div>
+
+
+  <!-- Report Generation Card -->
+  <div class="card shadow-lg mb-4">
+    <div class="card-header bg-white">
+      <h3 class="card-title mb-0">
+        <i class="fas fa-file-alt text-primary me-2"></i>Report Options
+      </h3>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="reportTitle" class="form-label">Report Title</label>
+          <input type="text" class="form-control" id="reportTitle" value="Air Quality Monitoring Report">
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="organization" class="form-label">Organization</label>
+          <input type="text" class="form-control" id="organization" value="Hafix Enterprise">
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="location" class="form-label">Location</label>
+          <input type="text" class="form-control" id="location" value="Main Office Building">
+        </div>
+        <div class="col-md-6 mb-3">
+          <label for="reportPeriod" class="form-label">Report Period</label>
+          <select class="form-select" id="reportPeriod">
+            <option value="daily">Daily Report</option>
+            <option value="weekly">Weekly Report</option>
+            <option value="monthly">Monthly Report</option>
+            <option value="custom">Custom Period</option>
+          </select>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="reportAdvice" class="form-label">Recommendations</label>
+        <textarea class="form-control" id="reportAdvice" rows="3">Based on the air quality data collected, we recommend the following actions:
+
+1. Continue regular monitoring of air quality parameters
+2. Ensure proper ventilation in all indoor spaces
+3. Consider installing air purifiers if air quality remains poor
+4. Provide masks for sensitive individuals during periods of poor air quality
+5. Schedule maintenance for HVAC systems to ensure optimal performance</textarea>
+      </div>
+      <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+        <button class="btn btn-success" id="printReportBtn">
+          <i class="fas fa-pdf me-2"></i>Generate PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Preview Section -->
+  <div class="card shadow-lg" id="reportPreviewCard" style="display: none;">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">
+        <i class="fas fa-file-alt text-primary me-2"></i>Report Preview
+      </h3>
+      <div>
+        <button class="btn btn-sm btn-success me-2" id="printPreviewBtn">
+          <i class="fas fa-print me-1"></i>Print
+        </button>
+        <button class="btn btn-sm btn-danger" id="downloadPdfBtn">
+          <i class="fas fa-download me-1"></i>PDF
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="printSection">
+        <!-- Report content will be inserted here -->
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- JavaScript libraries -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+  // Initialize jsPDF
+  const { jsPDF } = window.jspdf;
+  
+  // Reference to Firebase data
+  const dataRef = database.ref('air_monitor');
+  
+  // Current sensor data
+  let currentData = {
+    temperature: null,
+    humidity: null,
+    airStatus: null,
+    timestamp: null
+  };
+  
+  // Initialize when DOM is loaded
+  $(document).ready(function() {
+    // Load current data from Firebase
+    dataRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        currentData = {
+          temperature: data.temperature_c || null,
+          humidity: data.humidity || null,
+          airStatus: data.air_quality || '--',
+          timestamp: new Date()
+        };
+      }
+    });
+    
+    // Print report button
+    $('#printReportBtn').click(previewReport);
+    
+    // Print preview button
+    $('#printPreviewBtn').click(printReport);
+    
+    // Download PDF button
+    $('#downloadPdfBtn').click(async () => {
+      await generatePdfReport();
+    });
+  });
+  
+  // Helper function to load image data
+  function getImageData(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg'));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+  
+  // Generate a PDF report
+  async function generatePdfReport() {
+    const reportTitle = $('#reportTitle').val();
+    const organization = $('#organization').val();
+    const location = $('#location').val();
+    const reportPeriod = $('#reportPeriod').find(":selected").text();
+    const advice = $('#reportAdvice').val();
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = margin;
+
+    async function getImageData(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous"; // Important if image is hosted elsewhere
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          try {
+            const dataUrl = canvas.toDataURL("image/png");
+            resolve(dataUrl);
+          } catch (err) {
+            reject("Failed to convert image to Data URL");
+          }
+        };
+        img.onerror = () => reject("Image failed to load: " + url);
+        img.src = url;
+      });
+    }
+
+
+    // Title
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text(reportTitle, pageWidth / 2, y, { align: 'center' });
+    y += 10;
+
+    // Organization and details
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Prepared for: ${organization}`, margin, y);
+    doc.text(`Location: ${location}`, pageWidth - margin, y, { align: 'right' });
+    y += 8;
+    
+    doc.text(`Report Period: ${reportPeriod}`, margin, y);
+    doc.text(`Report Date: ${formatDate(currentData.timestamp)}`, pageWidth - margin, y, { align: 'right' });
+    y += 15;
+
+    // Summary section
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Air Quality Summary', margin, y);
+    y += 8;
+    
+    // Summary table
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('Parameter', margin, y);
+    doc.text('Value', margin + 60, y);
+    doc.text('Status', margin + 120, y);
+    y += 6;
+    
+    doc.setFont(undefined, 'normal');
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+    
+    // Temperature row
+    doc.text('Temperature', margin, y);
+    doc.text(currentData.temperature !== null ? currentData.temperature.toFixed(1) + '°C' : '--', margin + 60, y);
+    doc.text(getTemperatureStatus(currentData.temperature), margin + 120, y);
+    y += 8;
+    
+    // Humidity row
+    doc.text('Humidity', margin, y);
+    doc.text(currentData.humidity !== null ? currentData.humidity.toFixed(1) + '%' : '--', margin + 60, y);
+    doc.text(getHumidityStatus(currentData.humidity), margin + 120, y);
+    y += 8;
+    
+    // Air Quality row with color
+    doc.text('Air Quality', margin, y);
+    
+    const airStatus = currentData.airStatus || '--';
+    if (airStatus === 'Good') doc.setTextColor(46, 204, 113);
+    else if (airStatus === 'Moderate') doc.setTextColor(243, 156, 18);
+    else if (airStatus === 'Poor') doc.setTextColor(231, 76, 60);
+    
+    doc.text(airStatus, margin + 60, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text(getAqiAdvice(airStatus), margin + 120, y);
+    y += 15;
+    
+    // Detailed readings section
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Detailed Analysis', margin, y);
+    y += 8;
+    
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    const analysisText = `This report presents the air quality measurements taken at ${location}. The data shows the current environmental conditions and their impact on indoor air quality.`;
+    doc.text(analysisText, margin, y, { maxWidth: pageWidth - 2*margin });
+    y += 15;
+    
+    // Parameter cards
+    const parameters = [
+      {
+        title: "Temperature",
+        value: currentData.temperature !== null ? currentData.temperature.toFixed(1) + '°C' : '--',
+        status: getTemperatureStatus(currentData.temperature),
+        description: "Optimal indoor temperature should be between 20-25°C for comfort and health.",
+        impact: getTemperatureImpact(currentData.temperature)
+      },
+      {
+        title: "Humidity",
+        value: currentData.humidity !== null ? currentData.humidity.toFixed(1) + '%' : '--',
+        status: getHumidityStatus(currentData.humidity),
+        description: "Ideal relative humidity levels are between 30-60% to prevent mold growth and respiratory issues.",
+        impact: getHumidityImpact(currentData.humidity)
+      },
+      {
+        title: "Air Quality",
+        value: airStatus,
+        status: getAqiAdvice(airStatus),
+        description: "Air quality index indicates the cleanliness of the air and potential health effects.",
+        impact: getAqiImpact(airStatus)
+      }
+    ];
+    
+    parameters.forEach(param => {
+      if (y > 250) {
+        doc.addPage();
+        y = margin;
+      }
+      
+      doc.setFont(undefined, 'bold');
+      doc.text(param.title + ":", margin, y);
+      y += 6;
+      
+      doc.setFont(undefined, 'normal');
+      doc.text(`• Value: ${param.value} (${param.status})`, margin + 5, y);
+      y += 6;
+      doc.text(`• ${param.description}`, margin + 5, y);
+      y += 6;
+      doc.text(`• Impact: ${param.impact}`, margin + 5, y);
+      y += 10;
+    });
+    
+    // Recommendations section
+    if (y > 220) {
+      doc.addPage();
+      y = margin;
+    }
+    
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Recommendations', margin, y);
+    y += 8;
+    
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    const splitAdvice = doc.splitTextToSize(advice, pageWidth - 2*margin);
+    doc.text(splitAdvice, margin, y);
+    y += splitAdvice.length * 6 + 15;
+    
+    // Signature area
+    doc.line(margin, y, pageWidth/2 - 10, y);
+    doc.line(pageWidth/2 + 10, y, pageWidth - margin, y);
+    y += 5;
+    
+    doc.text("Prepared by", margin, y);
+    doc.text("Approved by", pageWidth/2 + 10, y);
+    y += 20;
+    
+    doc.line(margin, y, pageWidth/2 - 10, y);
+    doc.line(pageWidth/2 + 10, y, pageWidth - margin, y);
+    y += 5;
+    
+    doc.setFontSize(10);
+    doc.text("Name/Signature", margin, y);
+    doc.text("Name/Signature", pageWidth/2 + 10, y);
+    y += 5;
+    
+    doc.text("Date", margin, y);
+    doc.text("Date", pageWidth/2 + 10, y);
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Report generated on ${formatDate(new Date())} - ${organization} Air Monitoring System`, 
+             pageWidth/2, doc.internal.pageSize.getHeight() - 10, 
+             { align: 'center' });
+
+    doc.save(`AirQualityReport_${formatDate(currentData.timestamp, true)}.pdf`);
+  }
+
+  // Preview the report in HTML format
+  function previewReport() {
+    const reportTitle = $('#reportTitle').val();
+    const organization = $('#organization').val();
+    const location = $('#location').val();
+    const reportPeriod = $('#reportPeriod').find(":selected").text();
+    const advice = $('#reportAdvice').val();
+    const airStatus = currentData.airStatus || '--';
+    
+    const reportHtml = `
+      <div class="report-header text-center mb-4">
+        <h2 class="mb-2">${reportTitle}</h2>
+        <p class="mb-1"><strong>Prepared for:</strong> ${organization}</p>
+        <p class="mb-1"><strong>Location:</strong> ${location}</p>
+        <p class="mb-1"><strong>Report Period:</strong> ${reportPeriod}</p>
+        <p class="mb-3"><strong>Report Date:</strong> ${formatDate(currentData.timestamp)}</p>
+        <hr class="my-2">
+      </div>
+      
+      <div class="report-summary mb-4">
+        <h4 class="mb-3"><i class="fas fa-chart-pie me-2"></i>Air Quality Summary</h4>
+        <div class="table-responsive print-table">
+          <table class="table table-bordered print-full-width">
+            <thead class="table-primary">
+              <tr>
+                <th>Parameter</th>
+                <th>Value</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Temperature</td>
+                <td>${currentData.temperature !== null ? currentData.temperature.toFixed(1) + '°C' : '--'}</td>
+                <td>${getTemperatureStatus(currentData.temperature)}</td>
+              </tr>
+              <tr>
+                <td>Humidity</td>
+                <td>${currentData.humidity !== null ? currentData.humidity.toFixed(1) + '%' : '--'}</td>
+                <td>${getHumidityStatus(currentData.humidity)}</td>
+              </tr>
+              <tr>
+                <td>Air Quality</td>
+                <td>
+                  <span class="aqi-indicator ${getAqiClass(airStatus)}">
+                    ${airStatus}
+                  </span>
+                </td>
+                <td>${getAqiAdvice(airStatus)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="detailed-analysis mb-4">
+        <h4 class="mb-3"><i class="fas fa-chart-line me-2"></i>Detailed Analysis</h4>
+        <p class="mb-4">This report presents the air quality measurements taken at ${location}. The data shows the current environmental conditions and their impact on indoor air quality.</p>
+        
+        <div class="card parameter-card mb-3">
+          <div class="card-body">
+            <h5 class="card-title">Temperature</h5>
+            <p class="card-text">
+              <strong>Value:</strong> ${currentData.temperature !== null ? currentData.temperature.toFixed(1) + '°C' : '--'} (${getTemperatureStatus(currentData.temperature)})<br>
+              <strong>Description:</strong> Optimal indoor temperature should be between 20-25°C for comfort and health.<br>
+              <strong>Impact:</strong> ${getTemperatureImpact(currentData.temperature)}
+            </p>
+          </div>
+        </div>
+        
+        <div class="card parameter-card mb-3">
+          <div class="card-body">
+            <h5 class="card-title">Humidity</h5>
+            <p class="card-text">
+              <strong>Value:</strong> ${currentData.humidity !== null ? currentData.humidity.toFixed(1) + '%' : '--'} (${getHumidityStatus(currentData.humidity)})<br>
+              <strong>Description:</strong> Ideal relative humidity levels are between 30-60% to prevent mold growth and respiratory issues.<br>
+              <strong>Impact:</strong> ${getHumidityImpact(currentData.humidity)}
+            </p>
+          </div>
+        </div>
+        
+        <div class="card parameter-card mb-4">
+          <div class="card-body">
+            <h5 class="card-title">Air Quality</h5>
+            <p class="card-text">
+              <strong>Value:</strong> <span class="${getAqiClass(airStatus)}">${airStatus}</span><br>
+              <strong>Description:</strong> Air quality index indicates the cleanliness of the air and potential health effects.<br>
+              <strong>Impact:</strong> ${getAqiImpact(airStatus)}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="report-recommendations mb-4">
+        <h4 class="mb-3"><i class="fas fa-comment-medical me-2"></i>Recommendations</h4>
+        <div class="card">
+          <div class="card-body">
+            ${advice.split('\n').map(para => para.trim() ? `<p class="mb-2">${para}</p>` : '').join('')}
+          </div>
+        </div>
+      </div>
+      
+      <div class="signature-area mt-5">
+        <div class="row">
+          <div class="col-md-6">
+            <p class="mb-1">Prepared by:</p>
+            <hr class="mt-4">
+            <p class="text-muted small">Name/Signature</p>
+            <p class="text-muted small">Date</p>
+          </div>
+          <div class="col-md-6">
+            <p class="mb-1">Approved by:</p>
+            <hr class="mt-4">
+            <p class="text-muted small">Name/Signature</p>
+            <p class="text-muted small">Date</p>
+          </div>
+        </div>
+      </div>
+      
+      <footer class="text-center text-muted small mt-5 print-full-width">
+        <hr>
+        <p>Report generated on ${formatDate(new Date())} - ${organization} Air Monitoring System</p>
+      </footer>
+    `;
+    
+    // Insert into preview section
+    $('#printSection').html(reportHtml);
+    
+    // Show the preview section
+    $('#reportPreviewCard').show();
+    
+    // Scroll to preview
+    $('html, body').animate({
+      scrollTop: $('#reportPreviewCard').offset().top
+    }, 500);
+  }
+  
+  // Print the HTML report
+  function printReport() {
+    window.print();
+  }
+  
+  // Helper functions
+  function formatDate(date, forFileName = false) {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (forFileName) {
+      return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}_${d.getHours().toString().padStart(2, '0')}-${d.getMinutes().toString().padStart(2, '0')}`;
+    }
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  
+  function getTemperatureStatus(temp) {
+    if (temp === null) return '--';
+    if (temp < 15) return 'Low';
+    if (temp > 28) return 'High';
+    return 'Normal';
+  }
+  
+  function getHumidityStatus(humidity) {
+    if (humidity === null) return '--';
+    if (humidity < 30) return 'Low';
+    if (humidity > 65) return 'High';
+    return 'Normal';
+  }
+  
+  function getAqiClass(status) {
+    if (status === 'Good') return 'aqi-good';
+    if (status === 'Moderate') return 'aqi-moderate';
+    if (status === 'Poor') return 'aqi-poor';
+    return '';
+  }
+  
+  function getAqiAdvice(status) {
+    if (status === 'Good') return 'No health impacts expected';
+    if (status === 'Moderate') return 'Unusually sensitive individuals may experience symptoms';
+    if (status === 'Poor') return 'People with respiratory conditions should limit outdoor exertion';
+    return '--';
+  }
+  
+  function getTemperatureImpact(temp) {
+    if (temp === null) return 'No temperature data available';
+    if (temp < 15) return 'Increased risk of cold stress and discomfort';
+    if (temp > 28) return 'Risk of heat stress and decreased productivity';
+    return 'Comfortable temperature range for most individuals';
+  }
+  
+  function getHumidityImpact(humidity) {
+    if (humidity === null) return 'No humidity data available';
+    if (humidity < 30) return 'Dry air may cause skin irritation and respiratory discomfort';
+    if (humidity > 65) return 'High humidity promotes mold growth and allergen proliferation';
+    return 'Ideal humidity range for health and comfort';
+  }
+  
+  function getAqiImpact(status) {
+    if (status === 'Good') return 'Air quality is satisfactory with little risk to public health';
+    if (status === 'Moderate') return 'Acceptable air quality, but may affect unusually sensitive individuals';
+    if (status === 'Poor') return 'Health effects possible for sensitive groups; general public not likely affected';
+    return 'No air quality data available';
+  }
+</script>
+</body>
+</html>
