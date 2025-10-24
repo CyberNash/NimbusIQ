@@ -213,51 +213,72 @@
 
   console.log("SUCCESS: Gemini AI Initialized.");
 
-  // --- DIAGNOSTIC FUNCTION ---
-  // Temporarily use this function to see what models your API key can access.
-  async function listAvailableModels() {
-    console.log("Attempting to list available models...");
+  async function getAIAdvice() {
+    // This check is no longer strictly needed but is good practice
+    if (!model) {
+        alert("Gemini AI model could not be initialized. Please verify your API key and refresh.");
+        return;
+    }
+
+    const aiModal = new bootstrap.Modal(document.getElementById('aiModal'));
+    const aiAdviceBody = document.getElementById('ai-advice-body');
     const aiAdviceBtn = document.getElementById('ai-advice-btn');
+    
+    // --- FEATURE UPDATE: Build a summary of the data ---
+    const dataSummaryHtml = `
+      <div class="mb-3 p-2 bg-light rounded border">
+        <h6 class="mb-2 text-muted">Advice based on:</h6>
+        <div class="d-flex justify-content-around">
+          <div class="text-center px-2">
+            <i class="fas fa-temperature-high text-danger"></i>
+            <div class="small">${lastTemp}°C</div>
+          </div>
+          <div class="text-center px-2">
+            <i class="fas fa-tint text-info"></i>
+            <div class="small">${lastHumidity}%</div>
+          </div>
+          <div class="text-center px-2">
+            <i class="fas fa-wind text-warning"></i>
+            <div class="small">${lastAirStatus}</div>
+          </div>
+        </div>
+      </div>
+      <hr class="my-2">
+    `;
+    
+    // Display the data summary and a spinner immediately
+    aiAdviceBody.innerHTML = dataSummaryHtml + `<div class="d-flex align-items-center"><div class="spinner-border text-info me-3" role="status"><span class="visually-hidden">Loading...</span></div><span>The AI is analyzing...</span></div>`;
+    
+    aiModal.show();
     aiAdviceBtn.disabled = true;
-    aiAdviceBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Checking...';
+
+    const prompt = `Based on this data: Temperature is ${lastTemp}°C, Humidity is ${lastHumidity}%, and Air Quality is "${lastAirStatus}", give me short, personalized tips. Examples: is it safe to go outside, should I stay hydrated, or should I keep windows closed? Format the response as a simple list using markdown bullet points (e.g., "- tip 1"). Provide only the list, no conversational intro or outro.`;
 
     try {
-      // NOTE: We don't use the 'model' object here. We use the main 'genAI' object.
-      // This is a special function to list models.
-      const result = await genAI.listModels();
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const adviceText = response.text();
+      // Improved formatting to handle unordered lists correctly
+      let formattedHtml = adviceText
+        .split('\n') // Split by new lines
+        .filter(line => line.trim().startsWith('*') || line.trim().startsWith('-')) // Keep only lines that start with * or -
+        .map(line => `<li>${line.trim().substring(1).trim()}</li>`) // Convert them to <li> tags
+        .join('');
       
-      console.log("SUCCESS: Received a response from listModels.");
-      
-      let modelsList = "<h3>Available Models:</h3><ul>";
-      for await (const m of result) {
-        if (m.supportsGenerateContent) {
-          modelsList += `<li>${m.name}</li>`;
-          console.log("Found usable model:", m.name);
-        }
-      }
-      modelsList += "</ul><p>Check the browser's developer console (F12) for the full list. Then, update the `model` variable in your code with one of these names.</p>";
-      document.getElementById('ai-advice-body').innerHTML = modelsList;
-      new bootstrap.Modal(document.getElementById('aiModal')).show();
+      // Update the modal body with the data summary AND the final AI advice
+      aiAdviceBody.innerHTML = dataSummaryHtml + `<ul>${formattedHtml}</ul>`;
 
-    } catch(error) {
-        console.error("CRITICAL ERROR while listing models:", error);
-        document.getElementById('ai-advice-body').innerHTML = `<div class="alert alert-danger">
-            <h4>Failed to List Models</h4>
-            <p>The request to list available models failed. This confirms the issue is with your API key or Google Cloud Project setup.</p>
-            <p><strong>Please check the troubleshooting steps for API keys.</strong></p>
-            <hr>
-            <small class="text-muted">Error: ${error.message}</small>
-        </div>`;
-        new bootstrap.Modal(document.getElementById('aiModal')).show();
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      // More user-friendly error message
+      aiAdviceBody.innerHTML = dataSummaryHtml + `<div class="alert alert-danger mt-2"><p><strong>Oops! Could not get advice.</strong></p><p class="small mb-0">The request failed. This often happens if the API key is invalid, has restrictions (like HTTP referrer), or has billing issues. Check the console for more details.</p></div>`;
     } finally {
-        aiAdviceBtn.disabled = false;
-        aiAdviceBtn.innerHTML = '<i class="fas fa-robot me-2"></i>Get AI Advice';
+      aiAdviceBtn.disabled = false;
     }
   }
 
-  // Make sure the button still calls the function
-  document.getElementById('ai-advice-btn').addEventListener('click', listAvailableModels); // Changed this to the diagnostic function
-
+  // --- Attach event listener for the AI button ---
+  document.getElementById('ai-advice-btn').addEventListener('click', getAIAdvice);
   
   // --- Initialize everything when the document is ready ---
   document.addEventListener('DOMContentLoaded', () => {
